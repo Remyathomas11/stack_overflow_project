@@ -7,12 +7,15 @@ from django.contrib.auth.models import User
 from django.http import JsonResponse
 from django.views.decorators.csrf import csrf_exempt
 import json
-from rest_framework import generics, permissions
+from rest_framework import generics, permissions, filters
 from .serializers import QuestionSerializer
 from .models import Question, Answer, QuestionVote, AnswerVote 
 from .serializers import AnswerSerializer
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.response import Response
+from rest_framework.exceptions import PermissionDenied
+from rest_framework.views import APIView
+
 
 @csrf_exempt
 def register(request):
@@ -34,7 +37,8 @@ def register(request):
 
     else:
         return JsonResponse({'error': 'Only POST method allowed'}, status=405)
-    
+
+# Create Question    
 class QuestionCreateView(generics.CreateAPIView):
     queryset = Question.objects.all()
     serializer_class = QuestionSerializer
@@ -43,6 +47,31 @@ class QuestionCreateView(generics.CreateAPIView):
     def perform_create(self, serializer):
         serializer.save(user=self.request.user)
 
+# Update/Delete Question
+class QuestionUpdateDeleteView(generics.RetrieveUpdateDestroyAPIView):
+    queryset = Question.objects.all()
+    serializer_class = QuestionSerializer
+    permission_classes = [permissions.IsAuthenticated]
+
+    def perform_update(self, serializer):
+        if self.get_object().user != self.request.user:
+            raise PermissionDenied("Not your question.")
+        serializer.save()
+
+    def perform_destroy(self, instance):
+        if instance.user != self.request.user:
+             raise PermissionDenied("Not your question.")
+        instance.delete()
+
+# List/Search Questions
+class QuestionListView(generics.ListAPIView):
+    serializer_class = QuestionSerializer
+    permission_classes = [permissions.AllowAny]
+    queryset = Question.objects.all()
+    filter_backends = [filters.SearchFilter]
+    search_fields = ['title', 'tags']  # Enables search by title or tag
+
+#Answer  create
 class AnswerCreateView(generics.CreateAPIView):
     queryset = Answer.objects.all()
     serializer_class = AnswerSerializer
@@ -51,12 +80,45 @@ class AnswerCreateView(generics.CreateAPIView):
     def perform_create(self, serializer):
         serializer.save(user=self.request.user)
 
-class QuestionListView(generics.ListAPIView):
-    queryset = Question.objects.all()
-    serializer_class = QuestionSerializer
+class AnswerUpdateDeleteView(generics.RetrieveUpdateDestroyAPIView):
+    queryset = Answer.objects.all()
+    serializer_class = AnswerSerializer
     permission_classes = [permissions.IsAuthenticated]
-   
 
+    def perform_update(self, serializer):
+        if self.get_object().user != self.request.user:
+            raise PermissionDenied("Not your answer.")
+        serializer.save()
+
+    def perform_destroy(self, instance):
+        if instance.user != self.request.user:
+            raise PermissionDenied("Not your answer.")
+        instance.delete()
+
+#Answer accept
+class AcceptAnswerView(APIView):
+    permission_classes = [permissions.IsAuthenticated]
+
+    def post(self, request, answer_id):
+        try:
+            answer = Answer.objects.get(id=answer_id)
+        except Answer.DoesNotExist:
+            return Response({"detail": "Answer not found."}, status=404)
+
+        if answer.question.user != request.user:
+            raise PermissionDenied("You can only accept answers to your own questions.")
+
+        # Unmark previously accepted answers for the same question
+        Answer.objects.filter(question=answer.question, is_accepted=True).update(is_accepted=False)
+
+        answer.is_accepted = True
+        answer.save()
+
+        return Response({"detail": "Answer marked as accepted."}, status=200)
+
+
+   
+#voting
 
 @api_view(['POST'])
 @permission_classes([permissions.IsAuthenticated])
