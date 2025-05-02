@@ -7,15 +7,33 @@ from django.contrib.auth.models import User
 from django.http import JsonResponse
 from django.views.decorators.csrf import csrf_exempt
 import json
+from rest_framework.views import APIView
 from rest_framework import generics, permissions, filters
 from .serializers import QuestionSerializer
 from .models import Question, Answer, QuestionVote, AnswerVote 
-from .serializers import AnswerSerializer
+from .serializers import AnswerSerializer, NotificationSerializer
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.response import Response
 from rest_framework.exceptions import PermissionDenied
 from rest_framework.views import APIView
+from .models import Notification
 
+
+class MyAPIView(APIView):
+    def get(self, request):
+        return Response({'message': 'GET'})
+
+    def post(self, request):
+        return Response({'message': 'POST'})
+
+    def put(self, request):
+        return Response({'message': 'PUT'})
+
+    def patch(self, request):
+        return Response({'message': 'PATCH'})
+
+    def delete(self, request):
+        return Response({'message': 'DELETE'})
 
 @csrf_exempt
 def register(request):
@@ -107,15 +125,22 @@ class AcceptAnswerView(APIView):
 
         if answer.question.user != request.user:
             raise PermissionDenied("You can only accept answers to your own questions.")
-
+            
         # Unmark previously accepted answers for the same question
         Answer.objects.filter(question=answer.question, is_accepted=True).update(is_accepted=False)
 
         answer.is_accepted = True
         answer.save()
 
-        return Response({"detail": "Answer marked as accepted."}, status=200)
+         # Notify answer author
+        if answer.user != request.user:
+            Notification.objects.create(
+                recipient=answer.user,
+                message=f"Your answer to '{answer.question.title}' was accepted!"
+            )
 
+        return Response({"detail": "Answer marked as accepted."}, status=200)
+       
 
    
 #voting
@@ -172,3 +197,11 @@ def get_answers(request, question_id):
     answers = Answer.objects.filter(question_id=question_id)
     serializer = AnswerSerializer(answers, many=True)
     return Response(serializer.data)
+
+# notification list view
+class NotificationListView(generics.ListAPIView):
+    permission_classes = [permissions.IsAuthenticated]
+    serializer_class = NotificationSerializer
+
+    def get_queryset(self):
+        return Notification.objects.filter(recipient=self.request.user).order_by('-created_at')

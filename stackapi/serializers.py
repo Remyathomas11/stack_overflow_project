@@ -1,4 +1,4 @@
-from .models import AnswerVote, Question, Answer
+from .models import AnswerVote, Question, Answer, Notification, QuestionVote
 from rest_framework import serializers
 from django.db.models import Count, Q
 
@@ -23,3 +23,13 @@ class QuestionSerializer(serializers.ModelSerializer):
         model = Question
         fields = ['id', 'title', 'description', 'tags', 'user', 'answers']
         read_only_fields = ['user', 'created_at']
+    def get_upvotes(self, obj):
+        return QuestionVote.objects.filter(answer=obj, is_upvote=True).count()
+
+    def get_downvotes(self, obj):
+        return QuestionVote.objects.filter(answer=obj, is_upvote=False).count()
+
+class NotificationSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Notification
+        fields = ['id', 'message', 'created_at', 'is_read']
