@@ -7,11 +7,12 @@ from django.contrib.auth.models import User
 from django.http import JsonResponse
 from django.views.decorators.csrf import csrf_exempt
 import json
+from rest_framework import status
 from rest_framework.views import APIView
 from rest_framework import generics, permissions, filters
 from .serializers import QuestionSerializer
 from .models import Question, Answer, QuestionVote, AnswerVote 
-from .serializers import AnswerSerializer, NotificationSerializer
+from .serializers import AnswerSerializer, NotificationSerializer, RegisterSerializer
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.response import Response
 from rest_framework.exceptions import PermissionDenied
@@ -35,26 +36,16 @@ class MyAPIView(APIView):
     def delete(self, request):
         return Response({'message': 'DELETE'})
 
-@csrf_exempt
-def register(request):
-    if request.method == 'POST':
-        data = json.loads(request.body)
+class RegisterView(APIView):
+    def get(self, request):
+        return Response({"detail": "Send a POST request to register a new user."})
 
-        username = data.get('username')
-        email = data.get('email')
-        password = data.get('password')
-
-        if not username or not email or not password:
-            return JsonResponse({'error': 'Please provide username, email, and password'}, status=400)
-
-        if User.objects.filter(username=username).exists():
-            return JsonResponse({'error': 'Username already exists'}, status=400)
-
-        user = User.objects.create_user(username=username, email=email, password=password)
-        return JsonResponse({'message': 'User created successfully'})
-
-    else:
-        return JsonResponse({'error': 'Only POST method allowed'}, status=405)
+    def post(self, request):
+        serializer = RegisterSerializer(data=request.data)
+        if serializer.is_valid():
+            serializer.save()
+            return Response({"message": "User created successfully"}, status=status.HTTP_201_CREATED)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 # Create Question    
 class QuestionCreateView(generics.CreateAPIView):

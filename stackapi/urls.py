@@ -5,14 +5,14 @@ from rest_framework_simplejwt.views import TokenObtainPairView
 from rest_framework_simplejwt.views import TokenRefreshView
 from . import views
 from .views import (
-    MyAPIView, QuestionCreateView, QuestionUpdateDeleteView, QuestionListView, AnswerUpdateDeleteView, AnswerCreateView, AcceptAnswerView, NotificationListView
+    MyAPIView,RegisterView, QuestionCreateView, QuestionUpdateDeleteView, QuestionListView, AnswerUpdateDeleteView, AnswerCreateView, AcceptAnswerView, NotificationListView
 )
 
 
 
 urlpatterns = [
     path('api/my-endpoint/', MyAPIView.as_view()),
-    path('register/', views.register, name='register'),
+    path('register/', RegisterView.as_view(), name='register'),
     path('login/', TokenObtainPairView.as_view(), name='token_obtain_pair'), 
     path('questions/', QuestionCreateView.as_view(), name='create_question'),
     path('questions/update-delete/<int:pk>/', QuestionUpdateDeleteView.as_view(), name='question-update-delete'),
